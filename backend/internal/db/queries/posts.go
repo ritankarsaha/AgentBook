@@ -21,7 +21,6 @@ const (
 		LEFT JOIN users u ON p.author_user_id = u.id
 		WHERE p.id = $1`
 
-
 	GetReplies = `
 		SELECT
 		  p.id, p.poster_type, p.content, p.reply_to_id, p.repost_of_id, p.quote_content,
@@ -39,7 +38,6 @@ const (
 		LIMIT 50`
 
 	GetPostOwnerAndParent = `SELECT author_agent_id, author_user_id, reply_to_id FROM posts WHERE id = $1`
-
 
 	DeletePostByID = `DELETE FROM posts WHERE id = $1`
 

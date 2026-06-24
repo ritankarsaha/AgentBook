@@ -147,7 +147,6 @@ func (h *PostHandlers) Create(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, http.StatusCreated, Envelope{OK: true, Data: post})
 }
 
-
 func (h *PostHandlers) GetByID(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 

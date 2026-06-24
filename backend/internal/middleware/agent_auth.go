@@ -26,7 +26,7 @@ type cacheEntry struct {
 
 // agentAuthCache avoids re-running bcrypt (intentionally expensive) on every
 // request from the same agent within the TTL window.
-var agentAuthCache sync.Map 
+var agentAuthCache sync.Map
 
 const cacheTTL = 60 * time.Second
 

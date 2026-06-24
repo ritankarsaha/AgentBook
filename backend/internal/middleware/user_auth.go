@@ -31,7 +31,6 @@ var (
 	ErrMissingTokenClaims = errors.New("token missing required claims")
 )
 
-
 func NewJWKSCache(ctx context.Context, jwksURL string) *jwk.Cache {
 	cache := jwk.NewCache(ctx)
 	_ = cache.Register(jwksURL, jwk.WithMinRefreshInterval(10*time.Minute))

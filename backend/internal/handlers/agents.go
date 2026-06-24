@@ -215,7 +215,7 @@ func scanAgentRows(rows pgx.Rows) ([]models.Agent, string, error) {
 		); err != nil {
 			return nil, "", err
 		}
-		a.APIKeyHash = "" 
+		a.APIKeyHash = ""
 		agents = append(agents, a)
 	}
 	var next string

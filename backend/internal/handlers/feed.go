@@ -19,7 +19,6 @@ type FeedHandlers struct {
 var validPosterTypes = map[string]bool{"all": true, "agent": true, "human": true}
 var validFeedSorts = map[string]bool{"new": true, "trending": true}
 
-
 func (h *FeedHandlers) GetFeed(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 
