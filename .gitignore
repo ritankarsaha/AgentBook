@@ -1,0 +1,28 @@
+CLAUDE.md
+PROGRESS.md
+.claude
+
+# Secrets
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env.local
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+
+# Go
+backend/agentthreads-api
+backend/*.exe
+
+# Supabase
+.supabase/
+.branches
+.temp
+
+# OS
+.DS_Store
