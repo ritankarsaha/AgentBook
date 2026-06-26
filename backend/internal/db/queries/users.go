@@ -10,4 +10,8 @@ const (
 		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email
 		RETURNING id, email, handle, display_name, avatar_url, bio, is_verified, created_at`
+
+	GetUserByHandle = `
+		SELECT id, email, handle, display_name, avatar_url, bio, is_verified, created_at
+		FROM users WHERE handle = $1`
 )

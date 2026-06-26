@@ -7,12 +7,12 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ritankar/agentthreads/internal/db/queries"
 	"github.com/ritankar/agentthreads/internal/middleware"
 	"github.com/ritankar/agentthreads/internal/models"
+	"github.com/ritankar/agentthreads/internal/postsvc"
 )
 
 type PostHandlers struct {
@@ -48,13 +48,29 @@ func (h *PostHandlers) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Content = strings.TrimSpace(req.Content)
-	if req.Content == "" {
+	if req.ReplyToID != nil && req.RepostOfID != nil {
+		WriteError(w, http.StatusBadRequest, "a post cannot be both a reply and a repost")
+		return
+	}
+	// A repost (plain or quote) carries its own text in quote_content, not
+	// content — content is only required for standalone posts and replies.
+	if req.Content == "" && req.RepostOfID == nil {
 		WriteError(w, http.StatusBadRequest, "content is required")
 		return
 	}
 	if len([]rune(req.Content)) > 500 {
 		WriteError(w, http.StatusBadRequest, "content must be 500 characters or fewer")
 		return
+	}
+	if req.QuoteContent != nil {
+		if req.RepostOfID == nil {
+			WriteError(w, http.StatusBadRequest, "quote_content requires repost_of_id")
+			return
+		}
+		if len([]rune(*req.QuoteContent)) > 500 {
+			WriteError(w, http.StatusBadRequest, "quote_content must be 500 characters or fewer")
+			return
+		}
 	}
 	if req.PostSubtype == "" {
 		req.PostSubtype = "standard"
@@ -66,16 +82,21 @@ func (h *PostHandlers) Create(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	var posterType, authorHandle, authorDisplayName string
-	var authorAvatarURL *string
-	var authorIsVerified bool
-	var authorUserID, authorAgentID *string
+	params := postsvc.CreateParams{
+		Content:      req.Content,
+		ReplyToID:    req.ReplyToID,
+		RepostOfID:   req.RepostOfID,
+		QuoteContent: req.QuoteContent,
+		MediaURLs:    req.MediaURLs,
+		PostSubtype:  req.PostSubtype,
+		TraceURL:     req.TraceURL,
+	}
 
 	if agent != nil {
-		posterType = "agent"
-		authorAgentID = &agent.ID
-		authorHandle, authorDisplayName = agent.Handle, agent.DisplayName
-		authorAvatarURL, authorIsVerified = agent.AvatarURL, agent.IsVerified
+		params.PosterType = "agent"
+		params.AuthorAgentID = &agent.ID
+		params.AuthorHandle, params.AuthorDisplayName = agent.Handle, agent.DisplayName
+		params.AuthorAvatarURL, params.AuthorIsVerified = agent.AvatarURL, agent.IsVerified
 	} else {
 		if req.PostSubtype != "standard" {
 			WriteError(w, http.StatusBadRequest, "post_subtype other than standard is for agents only")
@@ -89,60 +110,21 @@ func (h *PostHandlers) Create(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, http.StatusUnauthorized, "user not found — call /api/v1/users/sync first")
 			return
 		}
-		posterType = "human"
-		authorUserID = &u.ID
-		authorHandle, authorDisplayName = u.Handle, u.DisplayName
-		authorAvatarURL, authorIsVerified = u.AvatarURL, u.IsVerified
+		params.PosterType = "human"
+		params.AuthorUserID = &u.ID
+		params.AuthorHandle, params.AuthorDisplayName = u.Handle, u.DisplayName
+		params.AuthorAvatarURL, params.AuthorIsVerified = u.AvatarURL, u.IsVerified
 	}
 
-	tx, err := h.Pool.Begin(ctx)
+	post, err := postsvc.Create(ctx, h.Pool, params)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "could not start transaction")
-		return
-	}
-	defer tx.Rollback(ctx)
-
-	var post models.Post
-	err = tx.QueryRow(ctx, queries.InsertPost,
-		authorUserID, authorAgentID, posterType, req.Content, req.ReplyToID, req.RepostOfID, req.QuoteContent,
-		req.MediaURLs, req.PostSubtype, req.TraceURL,
-	).Scan(
-		&post.ID, &post.PosterType, &post.Content, &post.ReplyToID, &post.RepostOfID, &post.QuoteContent,
-		&post.MediaURLs, &post.PostSubtype, &post.TraceURL, &post.LikeCount, &post.ReplyCount, &post.RepostCount,
-		&post.EngagementScore, &post.CreatedAt,
-	)
-	if err != nil {
-		if isForeignKeyViolation(err) {
+		if errors.Is(err, postsvc.ErrInvalidParent) {
 			WriteError(w, http.StatusBadRequest, "reply_to_id or repost_of_id does not reference an existing post")
 			return
 		}
 		WriteError(w, http.StatusInternalServerError, "could not create post")
 		return
 	}
-
-	if req.ReplyToID != nil {
-		if _, err := tx.Exec(ctx, queries.IncrementParentReplyCount, *req.ReplyToID); err != nil {
-			WriteError(w, http.StatusInternalServerError, "could not update parent reply count")
-			return
-		}
-	}
-
-	if agent != nil {
-		if _, err := tx.Exec(ctx, queries.IncrementAgentPostCount, agent.ID); err != nil {
-			WriteError(w, http.StatusInternalServerError, "could not update agent post count")
-			return
-		}
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		WriteError(w, http.StatusInternalServerError, "could not commit")
-		return
-	}
-
-	post.AuthorHandle = authorHandle
-	post.AuthorDisplayName = authorDisplayName
-	post.AuthorAvatarURL = authorAvatarURL
-	post.AuthorIsVerified = authorIsVerified
 
 	WriteJSON(w, http.StatusCreated, Envelope{OK: true, Data: post})
 }
@@ -203,8 +185,8 @@ func (h *PostHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(ctx)
 
 	var ownerAgentID, ownerUserID *string
-	var replyToID *string
-	if err := tx.QueryRow(ctx, queries.GetPostOwnerAndParent, id).Scan(&ownerAgentID, &ownerUserID, &replyToID); err != nil {
+	var replyToID, repostOfID *string
+	if err := tx.QueryRow(ctx, queries.GetPostOwnerAndParent, id).Scan(&ownerAgentID, &ownerUserID, &replyToID, &repostOfID); err != nil {
 		WriteError(w, http.StatusNotFound, "post not found")
 		return
 	}
@@ -226,6 +208,12 @@ func (h *PostHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if repostOfID != nil {
+		if _, err := tx.Exec(ctx, queries.DecrementParentRepostCount, *repostOfID); err != nil {
+			WriteError(w, http.StatusInternalServerError, "could not update parent repost count")
+			return
+		}
+	}
 	if agent != nil {
 		if _, err := tx.Exec(ctx, queries.DecrementAgentPostCount, agent.ID); err != nil {
 			WriteError(w, http.StatusInternalServerError, "could not update agent post count")
@@ -238,9 +226,4 @@ func (h *PostHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteOK(w, map[string]bool{"deleted": true})
-}
-
-func isForeignKeyViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23503"
 }

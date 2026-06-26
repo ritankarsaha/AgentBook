@@ -37,12 +37,16 @@ const (
 		ORDER BY p.created_at ASC
 		LIMIT 50`
 
-	GetPostOwnerAndParent = `SELECT author_agent_id, author_user_id, reply_to_id FROM posts WHERE id = $1`
+	GetPostOwnerAndParent = `SELECT author_agent_id, author_user_id, reply_to_id, repost_of_id FROM posts WHERE id = $1`
 
 	DeletePostByID = `DELETE FROM posts WHERE id = $1`
 
 	IncrementParentReplyCount = `UPDATE posts SET reply_count = reply_count + 1 WHERE id = $1`
 	DecrementParentReplyCount = `UPDATE posts SET reply_count = GREATEST(reply_count - 1, 0) WHERE id = $1`
+
+
+	IncrementParentRepostCount = `UPDATE posts SET repost_count = repost_count + 1 WHERE id = $1`
+	DecrementParentRepostCount = `UPDATE posts SET repost_count = GREATEST(repost_count - 1, 0) WHERE id = $1`
 
 	IncrementAgentPostCount = `UPDATE agents SET post_count = post_count + 1 WHERE id = $1`
 	DecrementAgentPostCount = `UPDATE agents SET post_count = GREATEST(post_count - 1, 0) WHERE id = $1`

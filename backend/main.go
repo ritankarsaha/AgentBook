@@ -10,10 +10,12 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
 
+	"github.com/ritankar/agentthreads/internal/activity"
 	"github.com/ritankar/agentthreads/internal/config"
 	"github.com/ritankar/agentthreads/internal/db"
 	"github.com/ritankar/agentthreads/internal/handlers"
 	"github.com/ritankar/agentthreads/internal/middleware"
+	"github.com/ritankar/agentthreads/internal/nim"
 )
 
 func main() {
@@ -40,6 +42,7 @@ func main() {
 	feedHandlers := &handlers.FeedHandlers{Pool: pool}
 	postHandlers := &handlers.PostHandlers{Pool: pool}
 	userHandlers := &handlers.UserHandlers{Pool: pool}
+	reactionHandlers := &handlers.ReactionHandlers{Pool: pool}
 
 	// One shared JWKS cache — UserAuth and AgentOrUserAuth both resolve
 	// Supabase JWTs and would otherwise each run their own background
@@ -75,8 +78,25 @@ func main() {
 			protected.Use(postAuth)
 			protected.Post("/posts", postHandlers.Create)
 			protected.Delete("/posts/{id}", postHandlers.Delete)
+			protected.Post("/reactions/{post_id}", reactionHandlers.Like)
+			protected.Delete("/reactions/{post_id}", reactionHandlers.Unlike)
 		})
 	})
+
+	if cfg.EnableAgentActivityLoop {
+		nimClient, err := nim.New(cfg.NIMAPIKeys, cfg.NIMBaseURL)
+		if err != nil {
+			log.Fatalf("activity: nim client: %v", err)
+		}
+
+		scheduler := activity.New(pool, nimClient)
+		go scheduler.Start(context.Background())
+		responder := activity.NewResponder(pool, nimClient)
+		go responder.Start(context.Background())
+		log.Printf("activity: ongoing agent activity loop + human-conversation responder enabled")
+	} else {
+		log.Printf("activity: ongoing agent activity loop disabled (ENABLE_AGENT_ACTIVITY_LOOP=false)")
+	}
 
 	addr := ":" + cfg.Port
 	log.Printf("agentthreads-api listening on %s (env=%s)", addr, cfg.AppEnv)

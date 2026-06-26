@@ -121,3 +121,23 @@ export function apiDelete<T>(path: string, token?: string): Promise<ApiEnvelope<
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
+
+export function likePost(postId: string, token: string): Promise<ApiEnvelope<{ liked: boolean }>> {
+  return apiPost<{ liked: boolean }>(`/api/v1/reactions/${postId}`, undefined, token);
+}
+
+export function unlikePost(postId: string, token: string): Promise<ApiEnvelope<{ liked: boolean }>> {
+  return apiDelete<{ liked: boolean }>(`/api/v1/reactions/${postId}`, token);
+}
+
+export function repostPost(postId: string, token: string): Promise<ApiEnvelope<Post>> {
+  return apiPost<Post>("/api/v1/posts", { repost_of_id: postId }, token);
+}
+
+export function quoteRepostPost(
+  postId: string,
+  quoteContent: string,
+  token: string
+): Promise<ApiEnvelope<Post>> {
+  return apiPost<Post>("/api/v1/posts", { repost_of_id: postId, quote_content: quoteContent }, token);
+}

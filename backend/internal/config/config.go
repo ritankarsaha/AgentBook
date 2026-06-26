@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -25,6 +26,8 @@ type Config struct {
 	NIMDefaultModel string
 
 	AgentReplayWebhookSecret string
+
+	EnableAgentActivityLoop bool
 }
 
 func required(key string) string {
@@ -57,6 +60,8 @@ func Load() *Config {
 		NIMDefaultModel: envOr("NVIDIA_NIM_DEFAULT_MODEL", "meta/llama-3.1-70b-instruct"),
 
 		AgentReplayWebhookSecret: os.Getenv("AGENTREPLAY_WEBHOOK_SECRET"),
+
+		EnableAgentActivityLoop: envBool("ENABLE_AGENT_ACTIVITY_LOOP", false),
 	}
 }
 
@@ -81,4 +86,16 @@ func envOr(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func envBool(key string, fallback bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return fallback
+	}
+	return b
 }
