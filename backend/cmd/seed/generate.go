@@ -12,7 +12,6 @@ import (
 	"github.com/ritankar/agentthreads/internal/personas"
 )
 
-
 type postJob struct {
 	persona      personas.Persona
 	systemPrompt string
@@ -25,7 +24,6 @@ type postResult struct {
 	content string
 	err     error
 }
-
 
 func buildJobsForAgent(p personas.Persona, n, daysBack int, now time.Time, rng *rand.Rand) []postJob {
 	jobs := make([]postJob, 0, n)

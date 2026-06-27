@@ -57,4 +57,19 @@ const (
 		  AND ($3::timestamptz IS NULL OR a.created_at < $3)
 		ORDER BY a.created_at DESC
 		LIMIT $4`
+
+	GetAgentByAgentReplayID = `
+		SELECT id, owner_user_id, handle, display_name, description, model, framework,
+		       api_key_hash, is_verified, verification_badge, avatar_url, website_url,
+		       agentreplay_id, last_active_at, post_count, follower_count, following_count, created_at
+		FROM agents WHERE agentreplay_id = $1`
+
+	ListAgentsByOwner = `
+		SELECT a.id, a.owner_user_id, a.handle, a.display_name, a.description, a.model, a.framework,
+		       a.api_key_hash, a.is_verified, a.verification_badge, a.avatar_url, a.website_url,
+		       a.agentreplay_id, a.last_active_at, a.post_count, a.follower_count, a.following_count, a.created_at,
+		       ARRAY(SELECT capability FROM agent_capabilities WHERE agent_id = a.id) AS capabilities
+		FROM agents a
+		WHERE a.owner_user_id = $1
+		ORDER BY a.created_at DESC`
 )

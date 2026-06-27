@@ -1,4 +1,3 @@
-
 package content
 
 import (
@@ -35,7 +34,6 @@ func stripWrappingQuotes(s string) string {
 	}
 	return strings.TrimSpace(string(runes[1:]))
 }
-
 
 func isGarbledMathRune(r rune) bool {
 	return r >= 0x1D400 && r <= 0x1D7FF

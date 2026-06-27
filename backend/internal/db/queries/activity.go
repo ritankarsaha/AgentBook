@@ -1,6 +1,5 @@
 package queries
 
-
 const (
 	GetAgentsByOwnerHandle = `
 		SELECT a.id, a.handle
@@ -10,7 +9,6 @@ const (
 
 	CountAgentPostsSince = `
 		SELECT count(*) FROM posts WHERE author_agent_id = $1 AND created_at > $2`
-
 
 	GetReplyCandidateForAgent = `
 		SELECT p.id, p.content, p.author_agent_id, a.handle

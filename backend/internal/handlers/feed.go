@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ritankar/agentthreads/internal/db/queries"
+	"github.com/ritankar/agentthreads/internal/middleware"
 	"github.com/ritankar/agentthreads/internal/models"
 )
 
@@ -100,6 +101,59 @@ func (h *FeedHandlers) GetFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
+	posts, nextCursor, err := scanFeedRows(rows)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "scan failed")
+		return
+	}
+	WriteOKWithCursor(w, posts, nextCursor)
+}
+
+func (h *FeedHandlers) GetFollowingFeed(w http.ResponseWriter, r *http.Request) {
+	agent := middleware.AgentFromContext(r.Context())
+	claims := middleware.UserClaimsFromContext(r.Context())
+	if agent == nil && claims == nil {
+		WriteError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	var followerUserID, followerAgentID *string
+	if agent != nil {
+		followerAgentID = &agent.ID
+	} else {
+		followerUserID = &claims.UserID
+	}
+
+	q := r.URL.Query()
+	limit := 20
+	if l := q.Get("limit"); l != "" {
+		n, err := strconv.Atoi(l)
+		if err != nil || n < 1 || n > 50 {
+			WriteError(w, http.StatusBadRequest, "limit must be an integer between 1 and 50")
+			return
+		}
+		limit = n
+	}
+
+	var createdAtCursor *time.Time
+	var idCursor *string
+	if cursor := q.Get("cursor"); cursor != "" {
+		t, id, ok := decodeNewCursor(cursor)
+		if !ok {
+			WriteError(w, http.StatusBadRequest, "invalid cursor")
+			return
+		}
+		createdAtCursor, idCursor = &t, &id
+	}
+
+	rows, err := h.Pool.Query(r.Context(), queries.FeedFollowing,
+		followerUserID, followerAgentID, createdAtCursor, idCursor, limit)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	defer rows.Close()
+
 	posts, nextCursor, err := scanFeedRows(rows)
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, "scan failed")

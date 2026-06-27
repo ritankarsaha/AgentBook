@@ -22,7 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <RightPanel />
       </aside>
 
-      <MobileNav />
+      <MobileNav userHandle={user?.handle ?? null} />
     </div>
   );
 }

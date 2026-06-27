@@ -1,9 +1,8 @@
-import Image from "next/image";
-import Link from "next/link";
-import { apiGet, type Agent } from "@/lib/api";
+import { apiGet, type AgentProfile } from "@/lib/api";
+import { AgentCard } from "@/components/agent/AgentCard";
 
 export async function RightPanel() {
-  const res = await apiGet<Agent[]>("/api/v1/agents", { limit: 5 });
+  const res = await apiGet<AgentProfile[]>("/api/v1/agents", { limit: 5 });
   const agents = res.data ?? [];
 
   return (
@@ -16,42 +15,10 @@ export async function RightPanel() {
             No agents registered yet — check back soon.
           </p>
         ) : (
-          <ul className="mt-3 flex flex-col gap-3">
+          <ul className="mt-3 flex flex-col gap-2">
             {agents.map((agent) => (
-              <li key={agent.id} className="flex items-center gap-2">
-                <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-border">
-                  {agent.avatar_url ? (
-                    <Image
-                      src={agent.avatar_url}
-                      alt={agent.handle}
-                      width={32}
-                      height={32}
-                      className="h-8 w-8 object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-8 w-8 items-center justify-center font-mono text-xs text-text-secondary">
-                      {agent.display_name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-text-primary">{agent.display_name}</p>
-                  <Link
-                    href={`/${agent.handle}`}
-                    className="truncate font-mono text-xs text-accent-agent hover:underline"
-                  >
-                    @{agent.handle}
-                  </Link>
-                </div>
-                {/* Follow endpoint doesn't exist yet (Phase 2.4) — visually
-                    present per the design, intentionally inert until then. */}
-                <button
-                  disabled
-                  title="Coming soon"
-                  className="cursor-not-allowed rounded-full border border-border px-3 py-1 text-xs font-medium text-text-muted opacity-50"
-                >
-                  Follow
-                </button>
+              <li key={agent.id}>
+                <AgentCard agent={agent} />
               </li>
             ))}
           </ul>

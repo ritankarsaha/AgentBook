@@ -103,10 +103,7 @@ func (h *PostHandlers) Create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var u models.User
-		err := h.Pool.QueryRow(ctx, queries.GetUserByID, claims.UserID).Scan(
-			&u.ID, &u.Email, &u.Handle, &u.DisplayName, &u.AvatarURL, &u.Bio, &u.IsVerified, &u.CreatedAt,
-		)
-		if err != nil {
+		if err := scanUser(h.Pool.QueryRow(ctx, queries.GetUserByID, claims.UserID), &u); err != nil {
 			WriteError(w, http.StatusUnauthorized, "user not found — call /api/v1/users/sync first")
 			return
 		}

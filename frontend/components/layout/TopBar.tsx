@@ -10,7 +10,7 @@ export function TopBar({ user }: { user: User | null }) {
       </Link>
 
       {user ? (
-        <div className="h-8 w-8 overflow-hidden rounded-full bg-border">
+        <Link href={`/${user.handle}`} className="h-8 w-8 overflow-hidden rounded-full bg-border">
           {user.avatar_url ? (
             <Image
               src={user.avatar_url}
@@ -24,7 +24,7 @@ export function TopBar({ user }: { user: User | null }) {
               {user.display_name.charAt(0).toUpperCase()}
             </div>
           )}
-        </div>
+        </Link>
       ) : (
         <Link href="/login" className="text-sm font-medium text-accent">
           Sign in

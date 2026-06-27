@@ -2,12 +2,16 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -22,6 +26,15 @@ type UserHandlers struct {
 
 var handleSanitizeRe = regexp.MustCompile(`[^a-z0-9_-]`)
 
+func scanUser(row interface{ Scan(...any) error }, u *models.User) error {
+	return row.Scan(
+		&u.ID, &u.Email, &u.Handle, &u.DisplayName,
+		&u.AvatarURL, &u.Bio, &u.WebsiteURL, &u.IsVerified,
+		&u.FollowerCount, &u.FollowingCount, &u.PostCount,
+		&u.CreatedAt,
+	)
+}
+
 func (h *UserHandlers) Sync(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.UserClaimsFromContext(r.Context())
 	if claims == nil {
@@ -32,10 +45,7 @@ func (h *UserHandlers) Sync(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var existing models.User
-	err := h.Pool.QueryRow(ctx, queries.GetUserByID, claims.UserID).Scan(
-		&existing.ID, &existing.Email, &existing.Handle, &existing.DisplayName,
-		&existing.AvatarURL, &existing.Bio, &existing.IsVerified, &existing.CreatedAt,
-	)
+	err := scanUser(h.Pool.QueryRow(ctx, queries.GetUserByID, claims.UserID), &existing)
 	if err == nil {
 		WriteOK(w, existing)
 		return
@@ -62,8 +72,9 @@ func (h *UserHandlers) Sync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var u models.User
-	err = h.Pool.QueryRow(ctx, queries.UpsertUser, claims.UserID, claims.Email, handle, displayName, avatarURL).Scan(
-		&u.ID, &u.Email, &u.Handle, &u.DisplayName, &u.AvatarURL, &u.Bio, &u.IsVerified, &u.CreatedAt,
+	err = scanUser(
+		h.Pool.QueryRow(ctx, queries.UpsertUser, claims.UserID, claims.Email, handle, displayName, avatarURL),
+		&u,
 	)
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, "could not create user")
@@ -72,7 +83,6 @@ func (h *UserHandlers) Sync(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, http.StatusCreated, Envelope{OK: true, Data: u})
 }
 
-// Me implements GET /api/v1/users/me — used by the frontend layout shell
 func (h *UserHandlers) Me(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.UserClaimsFromContext(r.Context())
 	if claims == nil {
@@ -81,14 +91,101 @@ func (h *UserHandlers) Me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var u models.User
-	err := h.Pool.QueryRow(r.Context(), queries.GetUserByID, claims.UserID).Scan(
-		&u.ID, &u.Email, &u.Handle, &u.DisplayName, &u.AvatarURL, &u.Bio, &u.IsVerified, &u.CreatedAt,
-	)
+	err := scanUser(h.Pool.QueryRow(r.Context(), queries.GetUserByID, claims.UserID), &u)
 	if err != nil {
 		WriteError(w, http.StatusNotFound, "user not found — call /api/v1/users/sync first")
 		return
 	}
 	WriteOK(w, u)
+}
+
+type updateUserRequest struct {
+	DisplayName *string `json:"display_name"`
+	Bio         *string `json:"bio"`
+	WebsiteURL  *string `json:"website_url"`
+}
+
+func (h *UserHandlers) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.UserClaimsFromContext(r.Context())
+	if claims == nil {
+		WriteError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	var req updateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, http.StatusBadRequest, "invalid JSON")
+		return
+	}
+
+	displayName := ""
+	if req.DisplayName != nil {
+		displayName = strings.TrimSpace(*req.DisplayName)
+	}
+
+	var u models.User
+	err := scanUser(
+		h.Pool.QueryRow(r.Context(), queries.UpdateUserProfile,
+			claims.UserID, displayName, req.Bio, req.WebsiteURL),
+		&u,
+	)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "update failed")
+		return
+	}
+	u.Email = ""
+	WriteOK(w, u)
+}
+
+func (h *UserHandlers) UserByHandle(w http.ResponseWriter, r *http.Request) {
+	handle := chi.URLParam(r, "handle")
+	var u models.User
+	err := scanUser(h.Pool.QueryRow(r.Context(), queries.GetUserByHandle, handle), &u)
+	if err != nil {
+		WriteError(w, http.StatusNotFound, "user not found")
+		return
+	}
+	u.Email = ""
+	WriteOK(w, u)
+}
+
+func (h *UserHandlers) UserPosts(w http.ResponseWriter, r *http.Request) {
+	handle := chi.URLParam(r, "handle")
+	tab := r.URL.Query().Get("tab")
+	if tab != "posts" && tab != "replies" && tab != "traces" {
+		tab = "posts"
+	}
+
+	limit := 20
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 100 {
+			limit = n
+		}
+	}
+
+	var createdAtCursor *time.Time
+	var idCursor *string
+	if c := r.URL.Query().Get("cursor"); c != "" {
+		if t, id, ok := decodeNewCursor(c); ok {
+			createdAtCursor = &t
+			idCursor = &id
+		}
+	}
+
+	rows, err := h.Pool.Query(r.Context(), queries.GetPostsByUserHandle,
+		handle, tab, createdAtCursor, idCursor, limit)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	defer rows.Close()
+
+	posts, nextCursor, err := scanFeedRows(rows)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "scan failed")
+		return
+	}
+	WriteOKWithCursor(w, posts, nextCursor)
 }
 
 func (h *UserHandlers) uniqueHandle(ctx context.Context, email string) (string, error) {

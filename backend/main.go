@@ -14,8 +14,10 @@ import (
 	"github.com/ritankar/agentthreads/internal/config"
 	"github.com/ritankar/agentthreads/internal/db"
 	"github.com/ritankar/agentthreads/internal/handlers"
+	"github.com/ritankar/agentthreads/internal/mcp"
 	"github.com/ritankar/agentthreads/internal/middleware"
 	"github.com/ritankar/agentthreads/internal/nim"
+	"github.com/ritankar/agentthreads/internal/storage"
 )
 
 func main() {
@@ -38,11 +40,27 @@ func main() {
 
 	r.Get("/health", handlers.Health)
 
+	// Rate limiters (in-memory sliding window, no Redis needed).
+	writeLimiter := middleware.NewRateLimiter(60, time.Hour) // 60 writes/hour per identity
+	readLimiter := middleware.NewRateLimiter(600, time.Hour) // 600 reads/hour per identity
+
 	agentHandlers := &handlers.AgentHandlers{Pool: pool}
 	feedHandlers := &handlers.FeedHandlers{Pool: pool}
 	postHandlers := &handlers.PostHandlers{Pool: pool}
 	userHandlers := &handlers.UserHandlers{Pool: pool}
 	reactionHandlers := &handlers.ReactionHandlers{Pool: pool}
+	followHandlers := &handlers.FollowHandlers{Pool: pool}
+	searchHandlers := &handlers.SearchHandlers{Pool: pool}
+	notifHandlers := &handlers.NotificationHandlers{Pool: pool}
+	mediaHandlers := &handlers.MediaHandlers{
+		Storage: storage.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey, cfg.SupabaseStorageBucket),
+	}
+	llmsHandlers := &handlers.LLMsHandlers{Pool: pool}
+	webhookHandlers := &handlers.WebhookHandlers{Pool: pool, WebhookSecret: cfg.AgentReplayWebhookSecret}
+
+	// llms.txt and llms-full.txt at root (outside /api/v1).
+	r.Get("/llms.txt", llmsHandlers.LLMsTxt)
+	r.Get("/llms-full.txt", llmsHandlers.LLMsFullTxt)
 
 	// One shared JWKS cache — UserAuth and AgentOrUserAuth both resolve
 	// Supabase JWTs and would otherwise each run their own background
@@ -53,35 +71,68 @@ func main() {
 	postAuth := middleware.AgentOrUserAuth(pool, jwkCache, cfg.SupabaseJWKSURL)
 
 	r.Route("/api/v1", func(api chi.Router) {
-		api.Post("/agents/register", agentHandlers.Register)
+		// Public reads.
 		api.Get("/agents", agentHandlers.Directory)
 		api.Get("/agents/{handle}", agentHandlers.Profile)
 		api.Get("/agents/{handle}/stats", agentHandlers.Stats)
-
+		api.Get("/agents/{handle}/posts", agentHandlers.Posts)
+		api.Get("/users/{handle}", userHandlers.UserByHandle)
+		api.Get("/users/{handle}/posts", userHandlers.UserPosts)
 		api.Get("/feed", feedHandlers.GetFeed)
 		api.Get("/posts/{id}", postHandlers.GetByID)
+		api.Get("/search", searchHandlers.Search)
+		api.Get("/stats", llmsHandlers.PlatformStats)
 
-		api.Group(func(protected chi.Router) {
-			protected.Use(agentAuth)
-			protected.Get("/agents/me", agentHandlers.Me)
-			protected.Put("/agents/me", agentHandlers.UpdateMe)
-			protected.Delete("/agents/me", agentHandlers.DeleteMe)
+		// Mount a dedicated sub-router at /agents/me so that all self-management
+		// routes (including /agents/me/verify) are resolved before chi tries the
+		// /agents/{handle} wildcard — using Route() guarantees the prefix is owned.
+		api.Route("/agents/me", func(me chi.Router) {
+			me.Use(agentAuth)
+			me.Get("/", agentHandlers.Me)
+			me.Put("/", agentHandlers.UpdateMe)
+			me.Delete("/", agentHandlers.DeleteMe)
+			me.Get("/verify", agentHandlers.GetPuzzle)
+			me.Post("/verify", agentHandlers.Verify)
 		})
 
+		// Human-only routes (Supabase JWT).
 		api.Group(func(protected chi.Router) {
 			protected.Use(userAuth)
 			protected.Post("/users/sync", userHandlers.Sync)
 			protected.Get("/users/me", userHandlers.Me)
+			protected.Put("/users/me", userHandlers.UpdateProfile)
+			protected.Post("/agents/register", agentHandlers.Register)
+			protected.Get("/users/me/agents", agentHandlers.MyAgents)
 		})
 
+		// Agent or human write endpoints (rate-limited).
 		api.Group(func(protected chi.Router) {
 			protected.Use(postAuth)
+			protected.Use(writeLimiter.Middleware)
 			protected.Post("/posts", postHandlers.Create)
 			protected.Delete("/posts/{id}", postHandlers.Delete)
 			protected.Post("/reactions/{post_id}", reactionHandlers.Like)
 			protected.Delete("/reactions/{post_id}", reactionHandlers.Unlike)
+			protected.Post("/follows/{handle}", followHandlers.Follow)
+			protected.Delete("/follows/{handle}", followHandlers.Unfollow)
+			protected.Post("/media/upload-url", mediaHandlers.UploadURL)
+		})
+
+		// Agent or human read endpoints (rate-limited).
+		api.Group(func(protected chi.Router) {
+			protected.Use(postAuth)
+			protected.Use(readLimiter.Middleware)
+			protected.Get("/notifications", notifHandlers.List)
+			protected.Get("/feed/following", feedHandlers.GetFollowingFeed)
 		})
 	})
+
+	// AgentReplay webhook — outside /api/v1, no API rate limiting, HMAC-validated.
+	r.Post("/webhooks/agentreplay", webhookHandlers.AgentReplay)
+
+	// MCP server — always on, same process, port MCP_PORT (default 8081).
+	mcpServer := mcp.New(pool, cfg.MCPPort)
+	go mcpServer.Start(context.Background())
 
 	if cfg.EnableAgentActivityLoop {
 		nimClient, err := nim.New(cfg.NIMAPIKeys, cfg.NIMBaseURL)

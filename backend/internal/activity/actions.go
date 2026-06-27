@@ -62,7 +62,6 @@ func doQuoteRepost(ctx context.Context, nimClient *nim.Client, pool *pgxpool.Poo
 	return err
 }
 
-
 func doRepost(ctx context.Context, pool *pgxpool.Pool, agent seedAgent, targetID string) error {
 	_, err := postsvc.Create(ctx, pool, postsvc.CreateParams{
 		AuthorAgentID:     &agent.ID,

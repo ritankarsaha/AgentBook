@@ -1,4 +1,3 @@
-
 package activity
 
 import (
@@ -52,8 +51,6 @@ func New(pool *pgxpool.Pool, nimClient *nim.Client) *Scheduler {
 	}
 }
 
-// Start loads the seed agents and then ticks until ctx is cancelled. Meant
-// to be run as `go scheduler.Start(ctx)` from main.go.
 func (s *Scheduler) Start(ctx context.Context) {
 	if err := s.ensureAgentsLoaded(ctx); err != nil {
 		log.Printf("activity: failed to load seed agents, loop not starting: %v", err)
@@ -74,7 +71,6 @@ func (s *Scheduler) Start(ctx context.Context) {
 		}
 	}
 }
-
 
 func (s *Scheduler) RunOnce(ctx context.Context) error {
 	if err := s.ensureAgentsLoaded(ctx); err != nil {

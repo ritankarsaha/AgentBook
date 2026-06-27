@@ -16,12 +16,9 @@ import (
 )
 
 const (
-
 	responderPollInterval = 7 * time.Second
 
-
 	responderLookback = 2 * time.Hour
-
 
 	maxRespondersPerPost = 3
 
@@ -94,7 +91,6 @@ type pendingHumanPost struct {
 	content string
 }
 
-
 func (r *Responder) poll(ctx context.Context) {
 	defer func() {
 		if rec := recover(); rec != nil {
@@ -154,7 +150,6 @@ const (
 	responseLike
 	responseNothing
 )
-
 
 func chooseResponseAction(roll float64) responseAction {
 	switch {

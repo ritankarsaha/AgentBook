@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ritankar/agentthreads/internal/authkey"
+	"github.com/ritankar/agentthreads/internal/captcha"
 	"github.com/ritankar/agentthreads/internal/db/queries"
 	"github.com/ritankar/agentthreads/internal/middleware"
 	"github.com/ritankar/agentthreads/internal/models"
@@ -24,7 +25,6 @@ type AgentHandlers struct {
 var handleRe = regexp.MustCompile(`^[a-z0-9_-]{3,30}$`)
 
 type registerAgentRequest struct {
-	OwnerUserID   string   `json:"owner_user_id"` // TODO: replace with authenticated user once human auth lands
 	Handle        string   `json:"handle"`
 	DisplayName   string   `json:"display_name"`
 	Description   string   `json:"description"`
@@ -36,6 +36,12 @@ type registerAgentRequest struct {
 }
 
 func (h *AgentHandlers) Register(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.UserClaimsFromContext(r.Context())
+	if claims == nil {
+		WriteError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
 	var req registerAgentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid request body")
@@ -46,8 +52,8 @@ func (h *AgentHandlers) Register(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusBadRequest, "handle must be 3-30 chars, lowercase letters/digits/_/-")
 		return
 	}
-	if req.DisplayName == "" || req.Model == "" || req.OwnerUserID == "" {
-		WriteError(w, http.StatusBadRequest, "display_name, model, and owner_user_id are required")
+	if req.DisplayName == "" || req.Model == "" {
+		WriteError(w, http.StatusBadRequest, "display_name and model are required")
 		return
 	}
 
@@ -77,7 +83,7 @@ func (h *AgentHandlers) Register(w http.ResponseWriter, r *http.Request) {
 	// in the API key, then update the row with the real hash.
 	var agent models.Agent
 	err := h.Pool.QueryRow(ctx, queries.InsertAgent,
-		req.OwnerUserID, req.Handle, req.DisplayName, nullableStr(req.Description), req.Model,
+		claims.UserID, req.Handle, req.DisplayName, nullableStr(req.Description), req.Model,
 		nullableStr(req.Framework), "pending", nullableStr(req.AgentReplayID), nullableStr(req.WebsiteURL),
 	).Scan(
 		&agent.ID, &agent.OwnerUserID, &agent.Handle, &agent.DisplayName, &agent.Description,
@@ -271,6 +277,183 @@ func (h *AgentHandlers) Stats(w http.ResponseWriter, r *http.Request) {
 		"last_active_at":   lastActive,
 		"top_capabilities": topCaps,
 	})
+}
+
+func (h *AgentHandlers) MyAgents(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.UserClaimsFromContext(r.Context())
+	if claims == nil {
+		WriteError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	rows, err := h.Pool.Query(r.Context(), queries.ListAgentsByOwner, claims.UserID)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	defer rows.Close()
+
+	type agentWithCaps struct {
+		models.Agent
+		Capabilities []string `json:"capabilities"`
+	}
+	var agents []agentWithCaps
+	for rows.Next() {
+		var a models.Agent
+		var caps []string
+		if err := rows.Scan(
+			&a.ID, &a.OwnerUserID, &a.Handle, &a.DisplayName, &a.Description,
+			&a.Model, &a.Framework, &a.APIKeyHash, &a.IsVerified, &a.VerificationBadge,
+			&a.AvatarURL, &a.WebsiteURL, &a.AgentReplayID, &a.LastActiveAt,
+			&a.PostCount, &a.FollowerCount, &a.FollowingCount, &a.CreatedAt,
+			&caps,
+		); err != nil {
+			WriteError(w, http.StatusInternalServerError, "scan failed")
+			return
+		}
+		a.APIKeyHash = ""
+		if caps == nil {
+			caps = []string{}
+		}
+		agents = append(agents, agentWithCaps{Agent: a, Capabilities: caps})
+	}
+	if agents == nil {
+		agents = []agentWithCaps{}
+	}
+	if err := rows.Err(); err != nil {
+		WriteError(w, http.StatusInternalServerError, "scan failed")
+		return
+	}
+	WriteOK(w, agents)
+}
+
+func (h *AgentHandlers) GetPuzzle(w http.ResponseWriter, r *http.Request) {
+	agent := middleware.AgentFromContext(r.Context())
+	if agent == nil {
+		WriteError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+	if agent.IsVerified {
+		WriteError(w, http.StatusConflict, "agent is already verified")
+		return
+	}
+
+	puzzle, err := captcha.GeneratePuzzle(r.Context(), h.Pool, agent.ID)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "could not generate puzzle")
+		return
+	}
+	WriteOK(w, puzzle)
+}
+
+type verifyRequest struct {
+	Token  string `json:"token"`
+	Answer string `json:"answer"`
+}
+
+func (h *AgentHandlers) Verify(w http.ResponseWriter, r *http.Request) {
+	agent := middleware.AgentFromContext(r.Context())
+	if agent == nil {
+		WriteError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+	if agent.IsVerified {
+		WriteError(w, http.StatusConflict, "agent is already verified")
+		return
+	}
+
+	var req verifyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Token == "" || req.Answer == "" {
+		WriteError(w, http.StatusBadRequest, "token and answer are required")
+		return
+	}
+
+	result, err := captcha.Verify(r.Context(), h.Pool, agent.ID, req.Token, req.Answer)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "verification lookup failed")
+		return
+	}
+
+	// Mark the token as used immediately — prevents replay even on wrong answer.
+	if result.Found {
+		captcha.MarkUsed(r.Context(), h.Pool, result.TokenID)
+	}
+
+	if !result.Found {
+		WriteError(w, http.StatusUnauthorized, "invalid or expired token — request a new puzzle")
+		return
+	}
+	if !result.Correct {
+		WriteError(w, http.StatusUnauthorized, "wrong answer — request a new puzzle")
+		return
+	}
+
+	capRows, _ := h.Pool.Query(r.Context(), queries.GetAgentCapabilities, agent.ID)
+	var caps []string
+	if capRows != nil {
+		defer capRows.Close()
+		for capRows.Next() {
+			var c string
+			if capRows.Scan(&c) == nil {
+				caps = append(caps, c)
+			}
+		}
+	}
+
+	badge := captcha.InferBadge(caps)
+
+	if _, err := h.Pool.Exec(r.Context(), queries.SetAgentVerified, agent.ID, badge); err != nil {
+		WriteError(w, http.StatusInternalServerError, "could not mark agent as verified")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, Envelope{OK: true, Data: map[string]any{
+		"verified": true,
+		"badge":    badge,
+	}})
+}
+
+func (h *AgentHandlers) Posts(w http.ResponseWriter, r *http.Request) {
+	handle := chi.URLParam(r, "handle")
+	tab := r.URL.Query().Get("tab")
+	if tab != "posts" && tab != "replies" && tab != "traces" {
+		tab = "posts"
+	}
+
+	limit := 20
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 100 {
+			limit = n
+		}
+	}
+
+	var createdAtCursor *time.Time
+	var idCursor *string
+	if c := r.URL.Query().Get("cursor"); c != "" {
+		if t, id, ok := decodeNewCursor(c); ok {
+			createdAtCursor = &t
+			idCursor = &id
+		}
+	}
+
+	rows, err := h.Pool.Query(r.Context(), queries.GetPostsByAgentHandle,
+		handle, tab, createdAtCursor, idCursor, limit)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	defer rows.Close()
+
+	posts, nextCursor, err := scanFeedRows(rows)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "scan failed")
+		return
+	}
+	WriteOKWithCursor(w, posts, nextCursor)
 }
 
 func nullableStr(s string) *string {

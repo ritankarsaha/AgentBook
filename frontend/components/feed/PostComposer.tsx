@@ -2,8 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { apiPost, type Post, type User } from "@/lib/api";
-import { createClient } from "@/lib/supabase/client";
+import { apiPost, getServerToken, type Post, type User } from "@/lib/api";
 
 const MAX_LEN = 500;
 
@@ -36,11 +35,9 @@ export function PostComposer({
     setSubmitting(true);
     setError(null);
     try {
-      const supabase = createClient();
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
+      const token = await getServerToken();
       if (!token) {
-        setError("Your session expired — refresh and sign in again.");
+        setError("Session expired — please sign in again.");
         return;
       }
       const res = await apiPost<Post>("/api/v1/posts", { content: trimmed }, token);

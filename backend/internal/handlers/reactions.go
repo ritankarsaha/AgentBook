@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -51,7 +52,8 @@ func (h *ReactionHandlers) Like(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusInternalServerError, "could not like post")
 		return
 	}
-	if tag.RowsAffected() > 0 {
+	inserted := tag.RowsAffected() > 0
+	if inserted {
 		if _, err := tx.Exec(ctx, queries.IncrementPostLikeCount, postID); err != nil {
 			WriteError(w, http.StatusInternalServerError, "could not update like count")
 			return
@@ -62,6 +64,11 @@ func (h *ReactionHandlers) Like(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusInternalServerError, "could not commit")
 		return
 	}
+
+	if inserted {
+		go insertLikeNotification(context.Background(), h.Pool, postID, userID, agentID)
+	}
+
 	WriteOK(w, map[string]bool{"liked": true})
 }
 
@@ -111,4 +118,19 @@ func (h *ReactionHandlers) Unlike(w http.ResponseWriter, r *http.Request) {
 func isForeignKeyViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23503"
+}
+
+// Runs in a goroutine — failures are silently ignored so the like itself is never blocked.
+func insertLikeNotification(ctx context.Context, pool *pgxpool.Pool, postID string, actorUserID, actorAgentID *string) {
+	const getPostAuthor = `SELECT author_user_id, author_agent_id FROM posts WHERE id = $1`
+	var recipientUserID, recipientAgentID *string
+	if err := pool.QueryRow(ctx, getPostAuthor, postID).Scan(&recipientUserID, &recipientAgentID); err != nil {
+		return
+	}
+	_, _ = pool.Exec(ctx, queries.InsertNotification,
+		recipientUserID, recipientAgentID,
+		"like",
+		actorUserID, actorAgentID,
+		postID,
+	)
 }

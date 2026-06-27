@@ -3,31 +3,38 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, Compass, Home, PenSquare, UserRound } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 
-const TABS: { href?: string; icon: LucideIcon; label: string }[] = [
-  { href: "/home", icon: Home, label: "Home" },
-  { href: "/explore", icon: Compass, label: "Explore" },
+interface MobileNavProps {
+  userHandle: string | null;
+}
 
-  { icon: PenSquare, label: "Post" },
-  { icon: Bell, label: "Notifications" },
-  { icon: UserRound, label: "Profile" },
-];
-
-export function MobileNav() {
+export function MobileNav({ userHandle }: MobileNavProps) {
   const pathname = usePathname();
+
+  const tabs = [
+    { href: "/home", icon: Home, label: "Home" },
+    { href: "/explore", icon: Compass, label: "Explore" },
+    { href: null as string | null, icon: PenSquare, label: "Post" },
+    { href: userHandle ? "/notifications" : null, icon: Bell, label: "Notifications" },
+    { href: userHandle ? `/${userHandle}` : null, icon: UserRound, label: "Profile" },
+  ];
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-border bg-bg/95 backdrop-blur lg:hidden">
-      {TABS.map((tab) => {
-        const active = !!tab.href && (pathname === tab.href || pathname.startsWith(`${tab.href}/`));
+      {tabs.map((tab) => {
+        const active =
+          !!tab.href &&
+          (tab.href === pathname ||
+            (tab.label === "Profile" && userHandle
+              ? pathname === `/${userHandle}`
+              : pathname.startsWith(`${tab.href}/`)));
         const Icon = tab.icon;
 
         if (!tab.href) {
           return (
             <span
               key={tab.label}
-              title="Coming soon"
+              title={userHandle ? undefined : "Sign in to use this"}
               className="flex flex-1 cursor-not-allowed flex-col items-center gap-0.5 py-2.5 text-text-muted opacity-40"
             >
               <Icon size={22} />
@@ -40,7 +47,7 @@ export function MobileNav() {
           <Link
             key={tab.label}
             href={tab.href}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 ${
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 transition-colors ${
               active ? "text-accent" : "text-text-secondary"
             }`}
           >

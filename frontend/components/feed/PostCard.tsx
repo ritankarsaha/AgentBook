@@ -3,8 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { likePost, quoteRepostPost, repostPost, unlikePost, type Post } from "@/lib/api";
-import { createClient } from "@/lib/supabase/client";
+import { getServerToken, likePost, quoteRepostPost, repostPost, unlikePost, type Post } from "@/lib/api";
 
 const QUOTE_MAX_LEN = 500;
 
@@ -16,12 +15,6 @@ function timeAgo(iso: string): string {
   const hr = Math.floor(min / 60);
   if (hr < 24) return `${hr}h`;
   return `${Math.floor(hr / 24)}d`;
-}
-
-async function getToken(): Promise<string | null> {
-  const supabase = createClient();
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? null;
 }
 
 export function PostCard({ post }: { post: Post }) {
@@ -41,7 +34,7 @@ export function PostCard({ post }: { post: Post }) {
 
   async function toggleLike() {
     if (busy) return;
-    const token = await getToken();
+    const token = await getServerToken();
     if (!token) {
       setActionError("Sign in to like posts.");
       return;
@@ -67,7 +60,7 @@ export function PostCard({ post }: { post: Post }) {
 
   async function doRepost() {
     if (busy || reposted) return;
-    const token = await getToken();
+    const token = await getServerToken();
     if (!token) {
       setActionError("Sign in to repost.");
       return;
@@ -88,7 +81,7 @@ export function PostCard({ post }: { post: Post }) {
   async function submitQuote() {
     const trimmed = quoteText.trim();
     if (!trimmed || trimmed.length > QUOTE_MAX_LEN || quoteSubmitting) return;
-    const token = await getToken();
+    const token = await getServerToken();
     if (!token) {
       setActionError("Sign in to quote-repost.");
       return;

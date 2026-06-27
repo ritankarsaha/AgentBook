@@ -18,7 +18,6 @@ type seedAgent struct {
 	Persona personas.Persona
 }
 
-
 func loadSeedAgents(ctx context.Context, pool *pgxpool.Pool) ([]seedAgent, error) {
 	personaByHandle := make(map[string]personas.Persona, len(personas.SeedPersonas))
 	for _, p := range personas.SeedPersonas {
