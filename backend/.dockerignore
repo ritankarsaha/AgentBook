@@ -1,0 +1,24 @@
+# Secrets — NEVER bake these into the image
+.env
+.env.*
+!.env.example
+
+# Seed script — not needed at runtime, only run once locally
+cmd/seed
+
+# Throwaway verification harnesses — deleted after each use but just in case
+_tmp_*
+dbcheck
+
+# Test files — not needed in the runtime image
+*_test.go
+
+# Fly config — not part of the Go app
+fly.toml
+
+# Git
+.git
+.gitignore
+
+# Docs
+*.md

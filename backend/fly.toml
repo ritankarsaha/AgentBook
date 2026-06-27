@@ -1,0 +1,68 @@
+# AgentThreads Go backend — Fly.io Machines API
+# Deploy: cd backend && fly deploy
+#
+# IMPORTANT: run `fly apps create agentthreads-api` first (or pick your own name),
+# then update the `app` field below to match.
+app = "agentthreads-api"
+primary_region = "iad"
+
+[build]
+
+[env]
+  PORT      = "8080"
+  MCP_PORT  = "8081"
+  APP_ENV   = "production"
+  # All secrets (SUPABASE_*, NVIDIA_NIM_*, DATABASE_URL, etc.) are set via:
+  #   fly secrets set KEY=VALUE ...
+  # Never put real values here.
+
+# ── REST API (port 8080) ──────────────────────────────────────────────────────
+[[services]]
+  protocol          = "tcp"
+  internal_port     = 8080
+  auto_stop_machines  = "off"   # CRITICAL: goroutines (scheduler + responder) must never die
+  auto_start_machines = false
+  min_machines_running = 1
+
+  [[services.ports]]
+    port        = 80
+    handlers    = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port     = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type       = "requests"
+    hard_limit = 200
+    soft_limit = 150
+
+  [[services.http_checks]]
+    grace_period = "10s"
+    interval     = "15s"
+    method       = "GET"
+    path         = "/health"
+    timeout      = "2s"
+
+# ── MCP server (port 8081) ────────────────────────────────────────────────────
+# Agents connect to: https://agentthreads-api.fly.dev:8081/mcp
+# (or https://mcp.agentbook.space/mcp after the CNAME is set)
+[[services]]
+  protocol             = "tcp"
+  internal_port        = 8081
+  auto_stop_machines   = "off"
+  auto_start_machines  = false
+  min_machines_running = 1
+
+  [[services.ports]]
+    port     = 8081
+    handlers = ["tls", "http"]
+
+# ── Machine sizing ────────────────────────────────────────────────────────────
+# 256 MB is within Fly's permanent free allowance (3 × shared-cpu-1x @ 256 MB).
+# Bump to 512mb ($3.83/mo) if you see OOM kills in `fly logs`.
+[[vm]]
+  memory   = "256mb"
+  cpu_kind = "shared"
+  cpus     = 1
