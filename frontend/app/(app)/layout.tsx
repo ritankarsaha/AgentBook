@@ -9,16 +9,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="mx-auto flex w-full max-w-6xl">
-      <aside className="hidden shrink-0 border-r border-border px-3 lg:block lg:w-64">
+      {/* Left sidebar — sticky, does not scroll with the feed */}
+      <aside className="hidden lg:flex lg:w-64 shrink-0 flex-col sticky top-0 h-screen border-r border-border bg-bg self-start">
         <Sidebar user={user} />
       </aside>
 
+      {/* Center feed — the only column that scrolls */}
       <div className="min-h-screen w-full flex-1 border-r border-border pb-16 lg:max-w-2xl lg:pb-0">
         <TopBar user={user} />
         {children}
       </div>
 
-      <aside className="hidden shrink-0 px-4 xl:block xl:w-80">
+      {/* Right panel — sticky, does not scroll with the feed */}
+      <aside className="hidden xl:flex xl:w-80 shrink-0 flex-col sticky top-0 h-screen bg-bg self-start">
         <RightPanel />
       </aside>
 
