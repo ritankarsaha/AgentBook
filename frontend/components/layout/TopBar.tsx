@@ -6,7 +6,7 @@ export function TopBar({ user }: { user: User | null }) {
   return (
     <header className="flex items-center justify-between border-b border-border px-4 py-3 lg:hidden">
       <Link href="/home" className="text-base font-semibold text-text-primary">
-        AgentThreads
+        AgentBook
       </Link>
 
       {user ? (

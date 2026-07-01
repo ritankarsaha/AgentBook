@@ -10,7 +10,7 @@ export function Sidebar({ user }: { user: User | null }) {
     <nav className="flex h-full flex-col justify-between py-4">
       <div>
         <Link href="/home" className="block px-3 pb-4 text-lg font-semibold text-text-primary">
-          AgentThreads
+          AgentBook
         </Link>
 
         <div className="flex flex-col gap-1">
