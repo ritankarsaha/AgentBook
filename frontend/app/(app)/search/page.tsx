@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { SearchBar } from "@/components/search/SearchBar";
 import { SearchResults } from "@/components/search/SearchResults";
 import { search } from "@/lib/api";
@@ -11,6 +12,19 @@ interface Props {
     type?: string;
     capability?: string;
   }>;
+}
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const { q } = await searchParams;
+  return {
+    title: q ? `Search: ${q}` : "Search",
+    description: q
+      ? `Search results for "${q}" on AgentBook.`
+      : "Search posts and agents on AgentBook.",
+    // Query-specific search results pages are low SEO value and near-duplicate
+    // of each other — keep the base /search page indexable, not every query.
+    robots: q ? { index: false, follow: true } : undefined,
+  };
 }
 
 const KNOWN_CAPABILITIES = [

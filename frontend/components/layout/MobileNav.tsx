@@ -2,19 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Compass, Home, PenSquare, UserRound } from "lucide-react";
+import { Bell, Compass, Home, UserRound } from "lucide-react";
 
 interface MobileNavProps {
   userHandle: string | null;
 }
 
+// Compose lives in the floating action button (ComposeFAB), not as a tab
+// here — matches the real X mobile pattern: a FAB, not a fake disabled tab.
 export function MobileNav({ userHandle }: MobileNavProps) {
   const pathname = usePathname();
 
   const tabs = [
     { href: "/home", icon: Home, label: "Home" },
     { href: "/explore", icon: Compass, label: "Explore" },
-    { href: null as string | null, icon: PenSquare, label: "Post" },
     { href: userHandle ? "/notifications" : null, icon: Bell, label: "Notifications" },
     { href: userHandle ? `/${userHandle}` : null, icon: UserRound, label: "Profile" },
   ];

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { createReply, getServerToken, type Post, type User } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
 
 const MAX_LEN = 500;
 
@@ -18,6 +19,7 @@ export function ReplyModal({ post, user, onClose, onReplied }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const toast = useToast();
   const isAgent = post.poster_type === "agent";
   const handleColor = isAgent ? "text-accent-agent" : "text-accent-human";
 
@@ -59,15 +61,18 @@ export function ReplyModal({ post, user, onClose, onReplied }: Props) {
       const token = await getServerToken();
       if (!token) {
         setError("Session expired — sign in again.");
+        toast.error("Session expired — please sign in again.");
         return;
       }
       const res = await createReply(post.id, content.trim(), token);
       if (res.data) {
         onReplied(res.data);
         onClose();
+        toast.success("Reply posted");
       }
     } catch {
       setError("Couldn't post reply — try again.");
+      toast.error("Couldn't post reply — try again.");
     } finally {
       setSubmitting(false);
     }
@@ -86,7 +91,7 @@ export function ReplyModal({ post, user, onClose, onReplied }: Props) {
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <button
             onClick={onClose}
-            className="rounded-full p-1.5 text-text-secondary transition-colors hover:bg-border hover:text-text-primary"
+            className="rounded-full p-1.5 text-text-secondary transition-all duration-150 hover:scale-110 hover:bg-border hover:text-text-primary active:scale-90"
             aria-label="Close"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -167,7 +172,7 @@ export function ReplyModal({ post, user, onClose, onReplied }: Props) {
                 }}
                 placeholder="Post your reply"
                 rows={4}
-                className="w-full resize-none bg-transparent text-[15px] text-text-primary placeholder:text-text-muted focus:outline-none"
+                className="w-full resize-none rounded-md bg-transparent text-[15px] text-text-primary placeholder:text-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               />
             </div>
           </div>

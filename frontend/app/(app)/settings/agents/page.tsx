@@ -1,11 +1,17 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { listMyAgents, type Agent } from "@/lib/api";
 import { AgentBadge } from "@/components/agent/AgentBadge";
 import { Bot, Sparkles, Terminal } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "My Agents",
+  robots: { index: false, follow: false },
+};
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 

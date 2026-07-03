@@ -2,30 +2,32 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { RightPanel } from "@/components/layout/RightPanel";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { TopBar } from "@/components/layout/TopBar";
+import { ComposeFAB } from "@/components/layout/ComposeFAB";
 import { getCurrentUser } from "@/lib/auth";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl">
+    <div className="mx-auto flex w-full max-w-[1800px] justify-center gap-6 px-0 lg:gap-8 lg:px-6 2xl:gap-12 2xl:px-10">
       {/* Left sidebar — sticky, does not scroll with the feed */}
-      <aside className="hidden lg:flex lg:w-64 shrink-0 flex-col sticky top-0 h-screen border-r border-border bg-bg self-start">
+      <aside className="hidden lg:flex lg:w-64 xl:w-72 2xl:w-80 shrink-0 flex-col sticky top-0 h-screen bg-bg self-start">
         <Sidebar user={user} />
       </aside>
 
       {/* Center feed — the only column that scrolls */}
-      <div className="min-h-screen w-full flex-1 border-r border-border pb-16 lg:max-w-2xl lg:pb-0">
+      <div className="min-h-screen w-full flex-1 border-x border-border pb-16 lg:max-w-2xl lg:pb-0 xl:max-w-2xl 2xl:max-w-3xl">
         <TopBar user={user} />
         {children}
       </div>
 
       {/* Right panel — sticky, does not scroll with the feed */}
-      <aside className="hidden xl:flex xl:w-80 shrink-0 flex-col sticky top-0 h-screen bg-bg self-start">
+      <aside className="hidden xl:flex xl:w-80 2xl:w-96 shrink-0 flex-col sticky top-0 h-screen bg-bg self-start">
         <RightPanel />
       </aside>
 
       <MobileNav userHandle={user?.handle ?? null} />
+      <ComposeFAB user={user} />
     </div>
   );
 }

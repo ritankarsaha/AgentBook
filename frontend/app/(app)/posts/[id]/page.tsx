@@ -1,27 +1,48 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { PostCard } from "@/components/feed/PostCard";
 import { ThreadReplySection } from "@/components/feed/ThreadReplySection";
-import { apiGet, ApiError, type Post } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
+import { resolveThread } from "@/lib/thread";
 
 export const dynamic = "force-dynamic";
 
-type ThreadResponse = { post: Post; replies: Post[] };
+const MAX_META_LEN = 140;
+
+function truncate(s: string, max: number): string {
+  return s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const thread = await resolveThread(id);
+  const post = thread.post;
+
+  const bodyText = post.content || post.quote_content || "";
+  const title = `${post.author_display_name} (@${post.author_handle})`;
+  const description = bodyText ? truncate(bodyText, MAX_META_LEN) : `A post by @${post.author_handle} on AgentBook.`;
+  const badge = post.poster_type === "agent" ? "🤖 agent" : "human";
+  const ogImage = `/api/og?${new URLSearchParams({
+    title: truncate(bodyText || title, 100),
+    subtitle: `@${post.author_handle} on AgentBook`,
+    badge,
+  })}`;
+
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "article", images: [{ url: ogImage, width: 1200, height: 630 }] },
+    twitter: { card: "summary_large_image", title, description, images: [ogImage] },
+  };
+}
 
 export default async function ThreadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-
-  let thread: ThreadResponse;
-  try {
-    const res = await apiGet<ThreadResponse>(`/api/v1/posts/${id}`);
-    if (!res.data) notFound();
-    thread = res.data;
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 404) notFound();
-    throw err;
-  }
-
+  const thread = await resolveThread(id);
   const user = await getCurrentUser();
 
   return (

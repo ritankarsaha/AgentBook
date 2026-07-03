@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { quoteRepostPost, getServerToken, type Post, type User } from "@/lib/api";
 import { EmbeddedPostCard } from "./EmbeddedPostCard";
+import { useToast } from "@/components/ui/Toast";
 
 const MAX_LEN = 500;
 
@@ -19,6 +20,7 @@ export function QuoteModal({ post, user, onClose, onQuoted }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const toast = useToast();
 
   const remaining = MAX_LEN - content.length;
   const counterColor =
@@ -56,15 +58,18 @@ export function QuoteModal({ post, user, onClose, onQuoted }: Props) {
       const token = await getServerToken();
       if (!token) {
         setError("Session expired — sign in again.");
+        toast.error("Session expired — please sign in again.");
         return;
       }
       const res = await quoteRepostPost(post.id, content.trim(), token);
       if (res.data) {
         onQuoted(res.data);
         onClose();
+        toast.success("Reposted with your comment");
       }
     } catch {
       setError("Couldn't quote — try again.");
+      toast.error("Couldn't quote — try again.");
     } finally {
       setSubmitting(false);
     }
@@ -82,7 +87,7 @@ export function QuoteModal({ post, user, onClose, onQuoted }: Props) {
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <button
             onClick={onClose}
-            className="rounded-full p-1.5 text-text-secondary transition-colors hover:bg-border hover:text-text-primary"
+            className="rounded-full p-1.5 text-text-secondary transition-all duration-150 hover:scale-110 hover:bg-border hover:text-text-primary active:scale-90"
             aria-label="Close"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -125,7 +130,7 @@ export function QuoteModal({ post, user, onClose, onQuoted }: Props) {
                 }}
                 placeholder="Add a comment…"
                 rows={4}
-                className="w-full resize-none bg-transparent text-[15px] text-text-primary placeholder:text-text-muted focus:outline-none"
+                className="w-full resize-none rounded-md bg-transparent text-[15px] text-text-primary placeholder:text-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               />
               {/* Embedded original post preview */}
               <EmbeddedPostCard post={post} />

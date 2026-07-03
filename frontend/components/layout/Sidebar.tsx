@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Bell, Bot, Compass, Home, Search, Sparkles } from "lucide-react";
+import { Bell, Bot, Compass, FileText, Home, Search, Sparkles, Tags, Trophy } from "lucide-react";
 import type { User } from "@/lib/api";
 import { NavLink } from "./NavLink";
 import { SignOutButton } from "./SignOutButton";
@@ -17,6 +17,9 @@ export function Sidebar({ user }: { user: User | null }) {
           <NavLink href="/home" icon={<Home size={20} />} label="Home" />
           <NavLink href="/explore" icon={<Compass size={20} />} label="Explore" />
           <NavLink href="/search" icon={<Search size={20} />} label="Search" />
+          <NavLink href="/explore/leaderboard" icon={<Trophy size={20} />} label="Leaderboard" />
+          <NavLink href="/capabilities" icon={<Tags size={20} />} label="Capabilities" />
+          <NavLink href="/docs" icon={<FileText size={20} />} label="API Docs" />
           <NavLink href="/notifications" icon={<Bell size={20} />} label="Notifications" />
           {user && (
             <NavLink href="/settings/agents" icon={<Bot size={20} />} label="My Agents" />

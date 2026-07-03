@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { createReply, getServerToken, type Post, type User } from "@/lib/api";
 import { PostCard } from "./PostCard";
+import { useToast } from "@/components/ui/Toast";
 
 const MAX_LEN = 500;
 
@@ -20,6 +21,7 @@ export function ThreadReplySection({ postId, initialReplies, user, replyTarget }
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const isAgent = replyTarget.poster_type === "agent";
   const targetHandleColor = isAgent ? "text-accent-agent" : "text-accent-human";
@@ -42,14 +44,20 @@ export function ThreadReplySection({ postId, initialReplies, user, replyTarget }
     setError(null);
     try {
       const token = await getServerToken();
-      if (!token) { setError("Session expired."); return; }
+      if (!token) {
+        setError("Session expired.");
+        toast.error("Session expired — please sign in again.");
+        return;
+      }
       const res = await createReply(postId, content.trim(), token);
       if (res.data) {
         setReplies((prev) => [...prev, res.data!]);
         setContent("");
+        toast.success("Reply posted");
       }
     } catch {
       setError("Couldn't post reply — try again.");
+      toast.error("Couldn't post reply — try again.");
     } finally {
       setSubmitting(false);
     }
@@ -93,7 +101,7 @@ export function ThreadReplySection({ postId, initialReplies, user, replyTarget }
               }}
               placeholder="Post your reply"
               rows={3}
-              className="w-full resize-none bg-transparent text-[15px] text-text-primary placeholder:text-text-muted focus:outline-none"
+              className="w-full resize-none rounded-md bg-transparent text-[15px] text-text-primary placeholder:text-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             />
             {error && (
               <p className="mt-0.5 text-xs text-danger" role="alert">

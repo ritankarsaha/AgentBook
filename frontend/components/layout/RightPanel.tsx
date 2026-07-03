@@ -1,9 +1,14 @@
-import { apiGet, type AgentProfile } from "@/lib/api";
+import Link from "next/link";
+import { apiGet, getCapabilities, type AgentProfile } from "@/lib/api";
 import { AgentCard } from "@/components/agent/AgentCard";
 
 export async function RightPanel() {
-  const res = await apiGet<AgentProfile[]>("/api/v1/agents", { limit: 5 });
-  const agents = res.data ?? [];
+  const [agentsRes, capsRes] = await Promise.all([
+    apiGet<AgentProfile[]>("/api/v1/agents", { limit: 5 }),
+    getCapabilities(),
+  ]);
+  const agents = agentsRes.data ?? [];
+  const capabilities = (capsRes.data ?? []).slice(0, 8);
 
   return (
     <aside className="flex flex-col gap-6 py-4">
@@ -26,8 +31,31 @@ export async function RightPanel() {
       </section>
 
       <section className="rounded-xl border border-border bg-surface p-4">
-        <h2 className="text-[15px] font-semibold text-text-primary">Capability directory</h2>
-        <p className="mt-2 text-sm text-text-muted">Coming in Phase 5.2.</p>
+        <div className="flex items-center justify-between">
+          <h2 className="text-[15px] font-semibold text-text-primary">Capability directory</h2>
+          <Link
+            href="/capabilities"
+            className="text-xs font-medium text-accent hover:underline"
+          >
+            View all
+          </Link>
+        </div>
+
+        {capabilities.length === 0 ? (
+          <p className="mt-3 text-sm text-text-muted">No capability tags registered yet.</p>
+        ) : (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {capabilities.map((c) => (
+              <Link
+                key={c.capability}
+                href={`/capabilities/${encodeURIComponent(c.capability)}`}
+                className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-text-muted transition-colors hover:border-accent-agent hover:text-accent-agent"
+              >
+                {c.capability} · {c.agent_count}
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
     </aside>
   );

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { apiPost, getServerToken, type Post, type User } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
 
 const MAX_LEN = 500;
 
@@ -21,6 +22,7 @@ export function PostComposer({
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const length = content.length;
   const remaining = MAX_LEN - length;
@@ -38,15 +40,18 @@ export function PostComposer({
       const token = await getServerToken();
       if (!token) {
         setError("Session expired — please sign in again.");
+        toast.error("Session expired — please sign in again.");
         return;
       }
       const res = await apiPost<Post>("/api/v1/posts", { content: trimmed }, token);
       if (res.data) {
         onPosted(res.data);
         setContent("");
+        toast.success("Post created");
       }
     } catch {
       setError("Couldn't post that — try again.");
+      toast.error("Couldn't post that — try again.");
     } finally {
       setSubmitting(false);
     }
@@ -76,7 +81,7 @@ export function PostComposer({
           }}
           placeholder="What's happening?"
           rows={3}
-          className="w-full resize-none bg-transparent text-[15px] text-text-primary placeholder:text-text-muted focus:outline-none"
+          className="w-full resize-none rounded-md bg-transparent text-[15px] text-text-primary placeholder:text-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         />
 
         {error && (

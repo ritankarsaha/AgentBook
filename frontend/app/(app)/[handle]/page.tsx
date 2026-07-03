@@ -1,9 +1,10 @@
-import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { AgentProfileHeader } from "@/components/agent/AgentProfileHeader";
 import { UserProfileHeader } from "@/components/user/UserProfileHeader";
 import { ProfileFeed } from "@/components/feed/ProfileFeed";
 import { createClient } from "@/lib/supabase/server";
-import { getAgentProfile, getUserProfile, getAgentPosts, getUserPosts, ApiError } from "@/lib/api";
+import { getAgentPosts, getUserPosts } from "@/lib/api";
+import { resolveProfile } from "@/lib/profile";
 import type { ProfileTab, Post } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -13,36 +14,54 @@ interface Props {
   searchParams: Promise<{ tab?: string }>;
 }
 
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { handle } = await params;
+  const profile = await resolveProfile(handle);
+
+  if (profile.type === "agent") {
+    const a = profile.agent;
+    const title = `${a.display_name} (@${a.handle})`;
+    const description =
+      a.description ||
+      `${a.display_name} is an AI agent on AgentBook — ${a.follower_count} followers, ${a.post_count} posts.`;
+    const ogImage = `/api/og?${new URLSearchParams({
+      title: a.display_name,
+      subtitle: `@${a.handle} · ${a.follower_count} followers · ${a.post_count} posts`,
+      badge: a.is_verified ? "🤖 verified agent" : "🤖 agent",
+    })}`;
+    return {
+      title,
+      description,
+      openGraph: { title, description, type: "profile", images: [{ url: ogImage, width: 1200, height: 630 }] },
+      twitter: { card: "summary_large_image", title, description, images: [ogImage] },
+    };
+  }
+
+  const u = profile.user;
+  const title = `${u.display_name} (@${u.handle})`;
+  const description =
+    u.bio || `${u.display_name} on AgentBook — ${u.follower_count} followers, ${u.post_count} posts.`;
+  const ogImage = `/api/og?${new URLSearchParams({
+    title: u.display_name,
+    subtitle: `@${u.handle} on AgentBook`,
+  })}`;
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "profile", images: [{ url: ogImage, width: 1200, height: 630 }] },
+    twitter: { card: "summary_large_image", title, description, images: [ogImage] },
+  };
+}
+
 export default async function ProfilePage({ params, searchParams }: Props) {
   const { handle } = await params;
   const { tab: tabParam } = await searchParams;
 
   // Agents support Posts | Replies | Traces. Humans only Posts | Replies.
-  let profileType: "agent" | "user" = "agent";
-  let agentProfile = null;
-  let userProfile = null;
-
-  try {
-    const res = await getAgentProfile(handle);
-    agentProfile = res.data;
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 404) {
-      profileType = "user";
-    } else {
-      profileType = "user";
-    }
-  }
-
-  if (profileType === "user") {
-    try {
-      const res = await getUserProfile(handle);
-      userProfile = res.data;
-    } catch {
-      notFound();
-    }
-  }
-
-  if (!agentProfile && !userProfile) notFound();
+  const profile = await resolveProfile(handle);
+  const profileType = profile.type;
+  const agentProfile = profile.type === "agent" ? profile.agent : null;
+  const userProfile = profile.type === "user" ? profile.user : null;
 
   // Valid tabs differ by profile type.
   const validAgentTabs: ProfileTab[] = ["posts", "replies", "traces"];

@@ -45,6 +45,7 @@ export type Agent = {
   following_count: number;
   post_count: number;
   capabilities?: string[];
+  created_at: string;
 };
 
 export type Post = {
@@ -398,4 +399,33 @@ export function getUserPosts(
     cursor,
     limit,
   });
+}
+
+// ─── Leaderboard ──────────────────────────────────────────────────────────────
+
+export type LeaderboardSort = "followers" | "active" | "engagement" | "newest";
+
+export type LeaderboardEntry = Agent & {
+  capabilities: string[];
+  rank: number;
+  posts_this_week?: number;
+  engagement_rate?: number;
+};
+
+export function getLeaderboard(
+  sort: LeaderboardSort = "followers",
+  limit = 25
+): Promise<ApiEnvelope<LeaderboardEntry[]>> {
+  return apiGet<LeaderboardEntry[]>("/api/v1/leaderboard", { sort, limit });
+}
+
+// ─── Capability directory ─────────────────────────────────────────────────────
+
+export type CapabilityCount = {
+  capability: string;
+  agent_count: number;
+};
+
+export function getCapabilities(): Promise<ApiEnvelope<CapabilityCount[]>> {
+  return apiGet<CapabilityCount[]>("/api/v1/capabilities");
 }

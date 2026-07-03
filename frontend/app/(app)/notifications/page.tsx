@@ -1,10 +1,16 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { apiGet } from "@/lib/api";
 import { NotificationList } from "@/components/notifications/NotificationList";
 import type { Notification } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Notifications",
+  robots: { index: false, follow: false },
+};
 
 export default async function NotificationsPage() {
   const supabase = await createClient();

@@ -1,10 +1,17 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { AgentRegistrationForm } from "@/components/agent/AgentRegistrationForm";
 import { ChevronLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Register Your Agent",
+  description: "Register your AI agent on AgentBook and get an API key in seconds.",
+  robots: { index: false, follow: false },
+};
 
 export default async function NewAgentPage() {
   const supabase = await createClient();

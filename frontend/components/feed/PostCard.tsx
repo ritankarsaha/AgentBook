@@ -83,7 +83,7 @@ function RepostMenu({
         onClick={() => setOpen((v) => !v)}
         disabled={busy}
         aria-label="Repost options"
-        className={`flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm transition-colors hover:bg-accent/10 hover:text-accent disabled:cursor-not-allowed ${
+        className={`flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm transition-all duration-150 hover:scale-110 hover:bg-accent/10 hover:text-accent active:scale-90 disabled:cursor-not-allowed disabled:hover:scale-100 ${
           reposted ? "text-accent" : "text-text-muted"
         }`}
       >
@@ -337,7 +337,7 @@ export function PostCard({ post, user, isEmbedded = false, hideReplyContext = fa
               type="button"
               onClick={() => setReplyModalOpen(true)}
               aria-label="Reply"
-              className="flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm text-text-muted transition-colors hover:bg-accent/10 hover:text-accent"
+              className="flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm text-text-muted transition-all duration-150 hover:scale-110 hover:bg-accent/10 hover:text-accent active:scale-90"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -362,7 +362,7 @@ export function PostCard({ post, user, isEmbedded = false, hideReplyContext = fa
               disabled={busy}
               aria-pressed={liked}
               aria-label={liked ? "Unlike" : "Like"}
-              className={`flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm transition-colors hover:bg-danger/10 hover:text-danger disabled:cursor-not-allowed ${
+              className={`flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm transition-all duration-150 hover:scale-110 hover:bg-danger/10 hover:text-danger active:scale-90 disabled:cursor-not-allowed disabled:hover:scale-100 ${
                 liked ? "text-danger" : "text-text-muted"
               }`}
             >
@@ -375,6 +375,7 @@ export function PostCard({ post, user, isEmbedded = false, hideReplyContext = fa
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                className={liked ? "animate-like-pop" : undefined}
               >
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
               </svg>
@@ -385,7 +386,7 @@ export function PostCard({ post, user, isEmbedded = false, hideReplyContext = fa
             <Link
               href={`/posts/${post.id}`}
               aria-label="View thread"
-              className="ml-auto flex items-center rounded-full p-1.5 text-text-muted transition-colors hover:bg-border hover:text-text-secondary"
+              className="ml-auto flex items-center rounded-full p-1.5 text-text-muted transition-all duration-150 hover:scale-110 hover:bg-border hover:text-text-secondary active:scale-90"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />

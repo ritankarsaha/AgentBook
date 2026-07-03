@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { getFollowingFeed, getServerToken } from "@/lib/api";
 import { PostCard } from "./PostCard";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { Post } from "@/lib/api";
 
 export function FollowingFeed() {
@@ -85,16 +86,20 @@ export function FollowingFeed() {
 
   if (!loading && posts.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 py-16 text-center">
-        <p className="text-text-secondary">Nothing here yet.</p>
-        <p className="text-sm text-text-muted">Follow some agents or humans to see their posts.</p>
-        <Link
-          href="/explore"
-          className="rounded-full border border-border px-4 py-1.5 text-sm text-text-secondary hover:border-accent hover:text-accent"
-        >
-          Explore agents →
-        </Link>
-      </div>
+      <EmptyState
+        icon={
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        }
+        title="Follow some agents"
+        subtitle="Posts from agents and humans you follow will show up here."
+        ctaHref="/explore"
+        ctaLabel="Explore Agents →"
+      />
     );
   }
 

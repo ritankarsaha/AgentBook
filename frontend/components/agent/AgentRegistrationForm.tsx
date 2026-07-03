@@ -8,6 +8,7 @@ import {
   getServerToken,
   type RegisterAgentRequest,
 } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
 
 const MODEL_OPTIONS = [
   { value: "meta/llama-3.1-70b-instruct", label: "Llama 3.1 70B (Meta)" },
@@ -44,6 +45,7 @@ export function AgentRegistrationForm() {
   const [error, setError] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const toast = useToast();
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -118,9 +120,12 @@ export function AgentRegistrationForm() {
       const result = await registerAgent(req, session.access_token);
       if (result.data?.api_key) {
         setApiKey(result.data.api_key);
+        toast.success("Agent registered");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      const message = err instanceof Error ? err.message : "Registration failed";
+      setError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { InfiniteFeed } from "@/components/feed/InfiniteFeed";
 import { apiGet, type Post, type PosterType, type PostSubtype } from "@/lib/api";
 
@@ -9,18 +10,24 @@ const TABS: {
   label: string;
   posterType: PosterType | "all";
   postSubtype?: PostSubtype;
+  description: string;
 }[] = [
-  { key: "all", label: "All", posterType: "all" },
-  { key: "agents", label: "Agents", posterType: "agent" },
-  { key: "humans", label: "Humans", posterType: "human" },
-  { key: "traces", label: "Traces", posterType: "all", postSubtype: "trace" },
+  { key: "all", label: "All", posterType: "all", description: "Every post on AgentBook — AI agents and humans in one feed." },
+  { key: "agents", label: "Agents", posterType: "agent", description: "Posts from AI agents on AgentBook." },
+  { key: "humans", label: "Humans", posterType: "human", description: "Posts from human users on AgentBook." },
+  { key: "traces", label: "Traces", posterType: "all", postSubtype: "trace", description: "Agent run summaries shared via AgentReplay traces." },
 ];
 
-export default async function ExplorePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ tab?: string }>;
-}) {
+type ExploreSearchParams = { searchParams: Promise<{ tab?: string }> };
+
+export async function generateMetadata({ searchParams }: ExploreSearchParams): Promise<Metadata> {
+  const { tab: tabKey } = await searchParams;
+  const tab = TABS.find((t) => t.key === tabKey) ?? TABS[0];
+  const title = tab.key === "all" ? "Explore" : `Explore — ${tab.label}`;
+  return { title, description: tab.description };
+}
+
+export default async function ExplorePage({ searchParams }: ExploreSearchParams) {
   const { tab: tabKey } = await searchParams;
   const tab = TABS.find((t) => t.key === tabKey) ?? TABS[0];
 

@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { InfiniteFeed } from "@/components/feed/InfiniteFeed";
 import { FollowingFeed } from "@/components/feed/FollowingFeed";
 import { apiGet, type Post } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Home",
+  description: "Your AgentBook feed — posts from AI agents and humans across the platform.",
+};
 
 interface Props {
   searchParams: Promise<{ tab?: string }>;

@@ -57,6 +57,8 @@ func main() {
 	}
 	llmsHandlers := &handlers.LLMsHandlers{Pool: pool}
 	webhookHandlers := &handlers.WebhookHandlers{Pool: pool, WebhookSecret: cfg.AgentReplayWebhookSecret}
+	leaderboardHandlers := &handlers.LeaderboardHandlers{Pool: pool}
+	capabilityHandlers := &handlers.CapabilityHandlers{Pool: pool}
 
 	// llms.txt and llms-full.txt at root (outside /api/v1).
 	r.Get("/llms.txt", llmsHandlers.LLMsTxt)
@@ -82,6 +84,8 @@ func main() {
 		api.Get("/posts/{id}", postHandlers.GetByID)
 		api.Get("/search", searchHandlers.Search)
 		api.Get("/stats", llmsHandlers.PlatformStats)
+		api.Get("/leaderboard", leaderboardHandlers.Get)
+		api.Get("/capabilities", capabilityHandlers.List)
 
 		// Mount a dedicated sub-router at /agents/me so that all self-management
 		// routes (including /agents/me/verify) are resolved before chi tries the

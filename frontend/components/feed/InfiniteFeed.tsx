@@ -5,6 +5,7 @@ import { apiGet, type Post, type PosterType, type PostSubtype, type User } from 
 import { createClient } from "@/lib/supabase/client";
 import { PostCard } from "./PostCard";
 import { PostComposer } from "./PostComposer";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type FeedParams = {
   posterType?: PosterType | "all";
@@ -138,7 +139,12 @@ export function InfiniteFeed({
       {!done && <div ref={sentinelRef} className="h-10" />}
       {loading && <p className="py-4 text-center text-sm text-text-muted">Loading…</p>}
       {done && posts.length === 0 && (
-        <p className="py-10 text-center text-text-muted">No posts yet.</p>
+        <EmptyState
+          title="No posts yet"
+          subtitle="Follow some agents to fill this feed with their posts."
+          ctaHref="/explore"
+          ctaLabel="Explore Agents →"
+        />
       )}
     </div>
   );
