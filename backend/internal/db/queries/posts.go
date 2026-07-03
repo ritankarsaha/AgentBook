@@ -8,31 +8,13 @@ const (
 		          post_subtype, trace_url, like_count, reply_count, repost_count, engagement_score, created_at`
 
 	GetPostByID = `
-		SELECT
-		  p.id, p.poster_type, p.content, p.reply_to_id, p.repost_of_id, p.quote_content,
-		  p.media_urls, p.post_subtype, p.trace_url, p.like_count, p.reply_count, p.repost_count,
-		  p.engagement_score, p.created_at,
-		  COALESCE(a.handle, u.handle) AS author_handle,
-		  COALESCE(a.display_name, u.display_name) AS author_display_name,
-		  COALESCE(a.avatar_url, u.avatar_url) AS author_avatar_url,
-		  COALESCE(a.is_verified, u.is_verified) AS author_is_verified
-		FROM posts p
-		LEFT JOIN agents a ON p.author_agent_id = a.id
-		LEFT JOIN users u ON p.author_user_id = u.id
+		SELECT` + mainPostSelect + `,` + refPostSelect + `
+		FROM posts p` + mainAuthorJoin + refPostJoin + `
 		WHERE p.id = $1`
 
 	GetReplies = `
-		SELECT
-		  p.id, p.poster_type, p.content, p.reply_to_id, p.repost_of_id, p.quote_content,
-		  p.media_urls, p.post_subtype, p.trace_url, p.like_count, p.reply_count, p.repost_count,
-		  p.engagement_score, p.created_at,
-		  COALESCE(a.handle, u.handle) AS author_handle,
-		  COALESCE(a.display_name, u.display_name) AS author_display_name,
-		  COALESCE(a.avatar_url, u.avatar_url) AS author_avatar_url,
-		  COALESCE(a.is_verified, u.is_verified) AS author_is_verified
-		FROM posts p
-		LEFT JOIN agents a ON p.author_agent_id = a.id
-		LEFT JOIN users u ON p.author_user_id = u.id
+		SELECT` + mainPostSelect + `,` + refPostSelect + `
+		FROM posts p` + mainAuthorJoin + refPostJoin + `
 		WHERE p.reply_to_id = $1
 		ORDER BY p.created_at ASC
 		LIMIT 50`
@@ -52,17 +34,8 @@ const (
 
 	// $1=handle, $2=tab (posts|replies|traces|'' for all), $3=cursor_ts, $4=cursor_id, $5=limit
 	GetPostsByAgentHandle = `
-		SELECT
-		  p.id, p.poster_type, p.content, p.reply_to_id, p.repost_of_id, p.quote_content,
-		  p.media_urls, p.post_subtype, p.trace_url, p.like_count, p.reply_count, p.repost_count,
-		  p.engagement_score, p.created_at,
-		  COALESCE(a.handle, u.handle)             AS author_handle,
-		  COALESCE(a.display_name, u.display_name) AS author_display_name,
-		  COALESCE(a.avatar_url, u.avatar_url)      AS author_avatar_url,
-		  COALESCE(a.is_verified, u.is_verified)    AS author_is_verified
-		FROM posts p
-		LEFT JOIN agents a ON p.author_agent_id = a.id
-		LEFT JOIN users  u ON p.author_user_id  = u.id
+		SELECT` + mainPostSelect + `,` + refPostSelect + `
+		FROM posts p` + mainAuthorJoin + refPostJoin + `
 		WHERE p.author_agent_id = (SELECT id FROM agents WHERE handle = $1)
 		  AND CASE
 		        WHEN $2 = 'posts'   THEN p.reply_to_id IS NULL
@@ -79,17 +52,8 @@ const (
 		LIMIT $5`
 
 	GetPostsByUserHandle = `
-		SELECT
-		  p.id, p.poster_type, p.content, p.reply_to_id, p.repost_of_id, p.quote_content,
-		  p.media_urls, p.post_subtype, p.trace_url, p.like_count, p.reply_count, p.repost_count,
-		  p.engagement_score, p.created_at,
-		  COALESCE(a.handle, u.handle)             AS author_handle,
-		  COALESCE(a.display_name, u.display_name) AS author_display_name,
-		  COALESCE(a.avatar_url, u.avatar_url)      AS author_avatar_url,
-		  COALESCE(a.is_verified, u.is_verified)    AS author_is_verified
-		FROM posts p
-		LEFT JOIN agents a ON p.author_agent_id = a.id
-		LEFT JOIN users  u ON p.author_user_id  = u.id
+		SELECT` + mainPostSelect + `,` + refPostSelect + `
+		FROM posts p` + mainAuthorJoin + refPostJoin + `
 		WHERE p.author_user_id = (SELECT id FROM users WHERE handle = $1)
 		  AND CASE
 		        WHEN $2 = 'posts'   THEN p.reply_to_id IS NULL

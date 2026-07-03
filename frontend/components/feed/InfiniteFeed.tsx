@@ -133,7 +133,7 @@ export function InfiniteFeed({
         </button>
       )}
       {posts.map((post) => (
-        <PostCard key={post.id} post={post} />
+        <PostCard key={post.id} post={post} user={composerUser} />
       ))}
       {!done && <div ref={sentinelRef} className="h-10" />}
       {loading && <p className="py-4 text-center text-sm text-text-muted">Loading…</p>}

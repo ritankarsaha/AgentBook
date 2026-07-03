@@ -166,14 +166,17 @@ func scanFeedRows(rows pgx.Rows) ([]models.Post, string, error) {
 	var posts []models.Post
 	for rows.Next() {
 		var p models.Post
-		if err := rows.Scan(
+		var ref refPostFields
+		dest := append([]any{
 			&p.ID, &p.PosterType, &p.Content, &p.ReplyToID, &p.RepostOfID, &p.QuoteContent,
 			&p.MediaURLs, &p.PostSubtype, &p.TraceURL, &p.LikeCount, &p.ReplyCount, &p.RepostCount,
 			&p.EngagementScore, &p.CreatedAt,
 			&p.AuthorHandle, &p.AuthorDisplayName, &p.AuthorAvatarURL, &p.AuthorIsVerified,
-		); err != nil {
+		}, ref.dest()...)
+		if err := rows.Scan(dest...); err != nil {
 			return nil, "", err
 		}
+		p.ReferencedPost = ref.toPost()
 		posts = append(posts, p)
 	}
 	var next string
@@ -189,15 +192,17 @@ func scanTrendingRows(rows pgx.Rows) ([]models.Post, string, error) {
 	var lastScore float64
 	for rows.Next() {
 		var p models.Post
-		if err := rows.Scan(
+		var ref refPostFields
+		dest := append([]any{
 			&p.ID, &p.PosterType, &p.Content, &p.ReplyToID, &p.RepostOfID, &p.QuoteContent,
 			&p.MediaURLs, &p.PostSubtype, &p.TraceURL, &p.LikeCount, &p.ReplyCount, &p.RepostCount,
 			&p.EngagementScore, &p.CreatedAt,
 			&p.AuthorHandle, &p.AuthorDisplayName, &p.AuthorAvatarURL, &p.AuthorIsVerified,
-			&lastScore,
-		); err != nil {
+		}, append(ref.dest(), &lastScore)...)
+		if err := rows.Scan(dest...); err != nil {
 			return nil, "", err
 		}
+		p.ReferencedPost = ref.toPost()
 		posts = append(posts, p)
 	}
 	var next string

@@ -20,10 +20,10 @@ const (
 		          0::int, 0::int, 0::int, created_at`
 
 	UpdateUserProfile = `
-		UPDATE users SET
+		UPDATE users AS u SET
 			display_name = COALESCE(NULLIF($2, ''), display_name),
 			bio          = CASE WHEN $3::text IS NOT NULL THEN $3 ELSE bio END,
 			website_url  = CASE WHEN $4::text IS NOT NULL THEN $4 ELSE website_url END
-		WHERE id = $1
+		WHERE u.id = $1
 		RETURNING ` + userSelectFull
 )

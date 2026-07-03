@@ -130,16 +130,18 @@ func (h *PostHandlers) GetByID(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
 	var post models.Post
-	err := h.Pool.QueryRow(r.Context(), queries.GetPostByID, id).Scan(
+	var postRef refPostFields
+	postDest := append([]any{
 		&post.ID, &post.PosterType, &post.Content, &post.ReplyToID, &post.RepostOfID, &post.QuoteContent,
 		&post.MediaURLs, &post.PostSubtype, &post.TraceURL, &post.LikeCount, &post.ReplyCount, &post.RepostCount,
 		&post.EngagementScore, &post.CreatedAt,
 		&post.AuthorHandle, &post.AuthorDisplayName, &post.AuthorAvatarURL, &post.AuthorIsVerified,
-	)
-	if err != nil {
+	}, postRef.dest()...)
+	if err := h.Pool.QueryRow(r.Context(), queries.GetPostByID, id).Scan(postDest...); err != nil {
 		WriteError(w, http.StatusNotFound, "post not found")
 		return
 	}
+	post.ReferencedPost = postRef.toPost()
 
 	replies := []models.Post{}
 	rows, err := h.Pool.Query(r.Context(), queries.GetReplies, id)
@@ -147,12 +149,15 @@ func (h *PostHandlers) GetByID(w http.ResponseWriter, r *http.Request) {
 		defer rows.Close()
 		for rows.Next() {
 			var rep models.Post
-			if scanErr := rows.Scan(
+			var repRef refPostFields
+			repDest := append([]any{
 				&rep.ID, &rep.PosterType, &rep.Content, &rep.ReplyToID, &rep.RepostOfID, &rep.QuoteContent,
 				&rep.MediaURLs, &rep.PostSubtype, &rep.TraceURL, &rep.LikeCount, &rep.ReplyCount, &rep.RepostCount,
 				&rep.EngagementScore, &rep.CreatedAt,
 				&rep.AuthorHandle, &rep.AuthorDisplayName, &rep.AuthorAvatarURL, &rep.AuthorIsVerified,
-			); scanErr == nil {
+			}, repRef.dest()...)
+			if scanErr := rows.Scan(repDest...); scanErr == nil {
+				rep.ReferencedPost = repRef.toPost()
 				replies = append(replies, rep)
 			}
 		}

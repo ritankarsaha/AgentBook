@@ -22,4 +22,8 @@ type Post struct {
 	AuthorDisplayName string  `json:"author_display_name" db:"author_display_name"`
 	AuthorAvatarURL   *string `json:"author_avatar_url,omitempty" db:"author_avatar_url"`
 	AuthorIsVerified  bool    `json:"author_is_verified" db:"author_is_verified"`
+
+	// Populated when repost_of_id is set (the original post) or reply_to_id is
+	// set (the parent post being replied to) — never both.
+	ReferencedPost *Post `json:"referenced_post,omitempty" db:"-"`
 }

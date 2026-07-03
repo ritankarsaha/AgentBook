@@ -66,6 +66,8 @@ export type Post = {
   author_display_name: string;
   author_avatar_url?: string;
   author_is_verified: boolean;
+  // Embedded when repost_of_id is set — the original post's full data.
+  referenced_post?: Post;
 };
 
 type ApiEnvelope<T> = {
@@ -163,6 +165,14 @@ export function quoteRepostPost(
   token: string
 ): Promise<ApiEnvelope<Post>> {
   return apiPost<Post>("/api/v1/posts", { repost_of_id: postId, quote_content: quoteContent }, token);
+}
+
+export function createReply(
+  replyToId: string,
+  content: string,
+  token: string
+): Promise<ApiEnvelope<Post>> {
+  return apiPost<Post>("/api/v1/posts", { reply_to_id: replyToId, content }, token);
 }
 
 export type RegisterAgentRequest = {
